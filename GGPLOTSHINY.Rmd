@@ -1,0 +1,444 @@
+---
+title: "Plot Your Data"
+output: html_document
+runtime: shiny
+---
+
+
+```{r, echo=FALSE ,warning=FALSE,error=FALSE }
+library(shiny)
+library(ggplot2)
+
+
+  ui  <-  fluidPage(
+    titlePanel("Hello User!"),
+    sidebarLayout(
+
+      sidebarPanel(
+        tabsetPanel(
+        tabPanel("Select Inputs", 
+                        tagList(
+      singleton(tags$head(tags$script(src='//cdnjs.cloudflare.com/ajax/libs/datatables/1.10.4/jquery.dataTables.min.js',type='text/javascript'))),
+      singleton(tags$head(tags$script(src='//cdnjs.cloudflare.com/ajax/libs/datatables-tabletools/2.1.5/js/TableTools.min.js',type='text/javascript'))),
+      singleton(tags$head(tags$script(src='//cdn.datatables.net/colreorder/1.1.1/js/dataTables.colReorder.min.js',type='text/javascript'))),
+      singleton(tags$head(tags$script(src='colvis.js',type='text/javascript'))),
+      singleton(tags$head(tags$script(src='//cdnjs.cloudflare.com/ajax/libs/datatables-tabletools/2.1.5/js/ZeroClipboard.min.js',type='text/javascript'))),
+      singleton(tags$head(tags$link(href='//cdnjs.cloudflare.com/ajax/libs/datatables-tabletools/2.1.5/css/TableTools.min.css',rel='stylesheet',type='text/css'))),
+      singleton(tags$script(HTML("if (window.innerHeight < 400) alert('Screen too small');"))),
+    tags$head( tags$style(HTML("
+                        .cvclear{
+                         text-align:right}"))) 
+    ),
+    
+        fileInput("file", "Choose file to upload", multiple = FALSE, accept = c("csv")),
+        checkboxInput('example', 'Use Example Data'),
+        selectInput("x_input",label = 'x variable:',""),
+        sliderInput("receivex", "Include x range:", min=1, max=2, value=c(1,2),step=1),
+        selectInput("y_input",label = 'y variable:',""),
+        sliderInput("receivey", "Include y range:", min=1, max=2, value=c(1,2),step=1),
+        selectInput('cat_input',label = 'Filter variable:',""),
+        selectInput('catfilter', label ='Selected values:', "",multiple=TRUE, selectize=TRUE),
+        selectInput('cat_var',label = 'Categorical variables:',"",multiple=TRUE),
+        sliderInput('n_cut',label = 'N of Cuts for Continuous:', min=1, max=10, value=c(3),step=1)
+          ), # tabpanel
+        tabPanel("How To",
+                   h5("1. Upload your ggplot ready data file in CSV format."),
+                   h5("2. It is assumed that your data is ready for ggplot (long format)."),
+                   h5("3. The UI is dynamic and changes depending on your choices of x ,y, filer, group etc.."),
+                   h5("4. If you want to change a numerical variable to categorical include it in the list of Categorical variables and then choose a number of cuts (default is 3)"),
+                   h5("5. Download the plot using the options on the 'Download' tab."),
+                   h5("6. Visualize the data table in the 'Data' tab. You can reorder the columns filter and much more."),
+                   p(),
+                 h5("Samer Mouksassi 2015")
+                 )# tabpanel 
+        )
+      ), #sidebarPanel
+      mainPanel(
+        tabsetPanel(
+          tabPanel("Plot"  , 
+                   plotOutput('plot',  width = "100%"),
+#                    actionButton("plotButton", "Update Plot"),
+                   hr(),
+                   fluidRow(
+                     column (12, h4("Choose plot types and variables that map to Color, Group and Split by column or by Row")),
+                     column (3, h4(""),
+                             radioButtons("Points", "Points/Jitter/Lines:",
+                                          c("Points" = "Points",
+                                            "Jitter" = "Jitter",
+                                            "None" = "None")),
+                              
+                             checkboxInput('line', 'Lines')
+                                       
+                     ),
+                     
+                     column (3, h4(""),
+                             selectInput('pointsize', 'Pointsize', c('None', c("factorvar1","factorvar1")),'None')
+
+                             ),
+                     
+                     column (3, h4(""),
+                   selectInput('color', 'Color by:', c('None', c("factorvar1","factorvar2")),'None'),
+                    selectInput('group', 'Group by:', c('None', c("factorvar1","factorvar2")),'None')
+                   
+                  
+                       ),
+                   column(3,
+                          h4(""),
+                         selectInput('facet_col', 'Column split by:',
+                               c(None='.', c("factorvar1","factorvar2")),'None'),
+                          selectInput('facet_row', 'Row split by:',
+                                      c(None='.', c("factorvar1","factorvar2")),'None')
+                   
+                         
+                   )
+                   ),
+fluidRow(
+  column(12,hr()),
+  column (3, 
+                                              radioButtons("Loess", "Loess:",
+                                          c("Loess" = "Loess",
+                                            "Loess and SE" = "Loess and SE",
+                                            "None" = "None"))),
+  column (3, 
+          sliderInput("loessens", "Loess Span:", min=0, max=1, value=c(0.75),step=0.05)
+             ),
+  column (3, 
+                          selectInput('weight', 'Weight Loess by:',
+                                      c('None', c("factorvar1","factorvar2")),'None')),
+    column (3,checkboxInput('ignorecol', 'Ignore Color Above') ,
+            textInput("colloess", "Loess Color", value = "red"))
+                     )
+                   
+          ),#tabPanel1
+          tabPanel("Download", 
+                     selectInput(
+                     inputId = "downloadPlotType",
+                     label   = h5("Select download file type"),
+                     choices = list("PDF"  = "pdf","BMP"  = "bmp","JPEG" = "jpeg","PNG"  = "png")),
+                   
+                   # Allow the user to set the height and width of the plot download.
+                   h5(HTML("Set download image dimensions<br>(units are inches for PDF, pixels for all other formats)")),
+                     numericInput(
+                     inputId = "downloadPlotHeight",label = "Height (inches)",value = 7,min = 1,max = 100),
+                     numericInput(
+                     inputId = "downloadPlotWidth",label = "Width (inches)",value = 7,min = 1,max = 100),
+                           # Choose download filename.
+                   textInput(
+                     inputId = "downloadPlotFileName",
+                     label = h5("Enter file name for download")),
+                   
+                   # File downloads when this button is clicked.
+                   downloadButton(
+                     outputId = "downloadPlot", 
+                     label    = "Download Plot")
+          ),
+          
+          tabPanel('Data',  dataTableOutput("mytablex") 
+          )#tabPanel2
+        )#tabsetPanel
+         )#mainPanel
+    )#sidebarLayout
+  )#fluidPage
+  
+
+  server <-  function(input, output, session) {
+    inFile <- reactive({
+      if (is.null(input$file)) {
+        return(NULL)
+      } else {
+        input$file
+      }
+    })
+    
+    myData <- reactive({
+      if (is.null(inFile())) {
+       if(input$example) {read.csv("hba1c_mbma_dat.csv") }
+       else {return(NULL)} 
+       }
+       else {
+        read.csv(inFile()$datapath)
+      }
+    })
+    
+
+      observe({
+       updateSelectInput(
+        session,
+        "x_input",
+        choices=names(myData()))
+    })
+    
+    observe({
+      updateSelectInput(
+        session,
+        "y_input",
+        choices=names(myData()))
+    })
+    observe({
+      updateSelectInput(
+        session,
+        "cat_input",
+        choices=c('None',names(myData())))
+    })
+    
+      observe({
+      updateSelectInput(
+        session,
+        "cat_var",
+        choices=c(names(myData())))
+    })
+    
+    observe({
+      updateSelectInput(
+        session,
+        "pointsize",
+        choices=c('None',names(myData())))
+    })
+    observe({
+      updateSelectInput(
+        session,
+        "color",
+        choices=c('None',names(myData())))
+    })
+    observe({
+      updateSelectInput(
+        session,
+        "group",
+        choices=c('None',names(myData())))
+    })
+    observe({
+      updateSelectInput(
+        session,
+        "weight",
+        choices=c('None',names(myData())))
+    })
+    
+    observe({
+      updateSelectInput(
+        session,
+        "facet_col",
+        choices=c(None='.',names(myData())))
+    })
+    observe({
+      updateSelectInput(
+        session,
+        "facet_row",
+        choices=c(None='.',names(myData())))
+    })  
+    
+      observe({
+      inputx <- input$x_input
+      data2<-  myData()
+      val1 <- min(min(data2[,input$x_input]),0)
+      val2 <- max(data2[,input$x_input])
+      val <- c(val1,val2)
+      updateSliderInput(session, "receivex", value = val,
+                        min = val1, max = val2, step = (val2-val1)/ 10 )
+    })
+    observe({
+      inputx <- input$y_input
+      data2<-  myData()
+      val1 <- min(min(data2[,input$y_input]),0)
+      val2 <- max(data2[,input$y_input])
+      val <- c(val1,val2)
+      updateSliderInput(session, "receivey", value = val,
+                        min = val1, max = val2, step = (val2-val1)/ 10 )
+    })
+    
+
+    
+    observe({
+      inputfactor <- input$cat_input
+          data2 <- myData()
+      choices <- NULL
+          choices <- if(!is.null(inputfactor)& inputfactor!="None" ) levels(as.factor(data2[,inputfactor])) 
+                
+          updateSelectInput(session, "catfilter",
+                            label = paste("Select label", input$cat_input),
+                            choices = c(choices),
+                            selected = choices
+          )
+        })
+    
+    
+    
+   output$mytablex = renderDataTable({
+ myData()
+}, options = list(
+  pageLength=10 ,
+  lengthMenu = list(c(5, 10, 15, -1), c('5','10', '15', 'All')),
+  "dom" = 'RMD<"cvclear"C><"clear"T>lfrtip',
+  "oTableTools" = list(
+    "sSwfPath" = "//cdnjs.cloudflare.com/ajax/libs/datatables-tabletools/2.1.5/swf/copy_csv_xls.swf",
+    "aButtons" = list(
+      "copy",
+      "print",
+      list("sExtends" = "collection",
+           "sButtonText" = "Save",
+           "aButtons" = c("csv","xls")
+      )
+    )
+  )
+)
+)
+    
+    plotObject <- reactive({
+      plotdata <- myData()
+                    plotdata <-  plotdata [ !is.na(plotdata[,input$y_input]),]
+                    plotdata[,input$y_input] <-  as.double(as.character(plotdata[,input$y_input]))
+
+     plotdata <-  plotdata [plotdata[,input$x_input] >= input$receivex[1]&plotdata[,input$x_input] <= input$receivex[2],]
+     plotdata <-  plotdata [plotdata[,input$y_input] >= input$receivey[1]&plotdata[,input$y_input] <= input$receivey[2],]
+    
+     if(input$cat_input!="None")
+       plotdata <-  plotdata [ is.element(plotdata[,input$cat_input],input$catfilter),]
+     
+     if(length(input$cat_var ) >=1) {
+       for (i in 1:length(input$cat_var) ) {
+         varname<- input$cat_var[i]
+         if( length(unique(plotdata[,varname]))>10 ) plotdata[,varname] <- cut(plotdata[,varname],input$n_cut)
+       plotdata[,varname]   <- as.factor( plotdata[,varname])
+       }
+       }
+       
+        
+    
+   
+     
+     if(!is.null(plotdata)) {
+
+      p <- ggplot(plotdata, aes_string(x=input$x_input, y=input$y_input)) 
+      
+      if (input$group != 'None' & !is.factor(plotdata[,input$x]))
+        p <- p + aes_string(group=input$group)
+      
+      if (input$group != 'None' & is.factor(plotdata[,input$x]))
+        p <- p + aes(group=1)
+      
+      if (input$Points=="Points")
+        p <- p + geom_point()   
+      
+      if (input$line)
+        p <- p + geom_line(,size=1)
+        
+      
+      
+       if (input$pointsize != 'None')
+      p <- p  + aes_string(size=input$pointsize)
+      
+      if (input$Points=="Jitter")
+        p <- p + geom_jitter()
+      if (input$color != 'None')
+           p <- p + aes_string(color=input$color)
+      
+      if (!input$ignorecol) {
+      spanplot <- input$loessens
+      if (input$Loess=="Loess")
+        p <- p + geom_smooth(method="loess",size=1.5,se=F,span=spanplot)
+      
+      if (input$Loess=="Loess and SE")
+        p <- p + geom_smooth(method="loess",size=1.5,se=T,span=spanplot)
+      
+      if (input$Loess=="Loess"& input$weight != 'None')
+        p <- p + geom_smooth(method="loess",size=1.5,se=F,span=spanplot)+  
+        aes_string(weight=input$weight)
+      
+      if (input$Loess=="Loess and SE"& input$weight != 'None')
+        p <- p + geom_smooth(method="loess",size=1.5,se=T,span=spanplot)+  
+        aes_string(weight=input$weight)
+      }
+      if (input$ignorecol) {
+        spanplot <- input$loessens
+        colloeess <- input$colloess
+      if (input$Loess=="Loess")
+        p <- p + geom_smooth(method="loess",size=1.5,se=F,span=spanplot,col=colloeess)
+      
+      if (input$Loess=="Loess and SE")
+        p <- p + geom_smooth(method="loess",size=1.5,se=T,span=spanplot,col=colloeess)
+      
+      if (input$Loess=="Loess"& input$weight != 'None')
+        p <- p + geom_smooth(method="loess",size=1.5,se=F,span=spanplot,col=colloeess)+  
+        aes_string(weight=input$weight)
+      
+      if (input$Loess=="Loess and SE"& input$weight != 'None')
+        p <- p + geom_smooth(method="loess",size=1.5,se=T,span=spanplot,col=colloeess)+  
+        aes_string(weight=input$weight)
+              }
+      
+      facets <- paste(input$facet_row, '~', input$facet_col)
+      if (facets != '. ~ .')
+        p <- p + facet_grid(facets)
+      p
+      p
+    }
+    })
+    
+    output$plot <- renderPlot({
+      print(plotObject())
+    })
+    
+    downloadPlotType <- reactive({
+      input$downloadPlotType  
+    })
+    
+    observe({
+      plotType    <- input$downloadPlotType
+      plotTypePDF <- plotType == "pdf"
+      plotUnit    <- ifelse(plotTypePDF, "inches", "pixels")
+      plotUnitDef <- ifelse(plotTypePDF, 7, 480)
+      
+      updateNumericInput(
+        session,
+        inputId = "downloadPlotHeight",
+        label = sprintf("Height (%s)", plotUnit),
+        value = plotUnitDef)
+      
+      updateNumericInput(
+        session,
+        inputId = "downloadPlotWidth",
+        label = sprintf("Width (%s)", plotUnit),
+        value = plotUnitDef)
+      
+    })
+    
+    
+    # Get the download dimensions.
+    downloadPlotHeight <- reactive({
+      input$downloadPlotHeight
+    })
+    
+    downloadPlotWidth <- reactive({
+      input$downloadPlotWidth
+    })
+    
+    # Get the download file name.
+    downloadPlotFileName <- reactive({
+      input$downloadPlotFileName
+    })
+    
+    # Include a downloadable file of the plot in the output list.
+    output$downloadPlot <- downloadHandler(
+      filename = function() {
+        paste(downloadPlotFileName(), downloadPlotType(), sep=".")   
+      },
+      # The argument content below takes filename as a function
+      # and returns what's printed to it.
+      content = function(con) {
+        # Gets the name of the function to use from the 
+        # downloadFileType reactive element. Example:
+        # returns function pdf() if downloadFileType == "pdf".
+        plotFunction <- match.fun(downloadPlotType())
+        plotFunction(con, width = downloadPlotWidth(), height = downloadPlotHeight())
+        print(plotObject())
+        dev.off(which=dev.cur())
+      }
+    )
+
+    
+  }
+
+shinyApp(ui = ui, server = server,  options = list(height = 1000))
+
+```
+
+
