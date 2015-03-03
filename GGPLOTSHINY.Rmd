@@ -8,7 +8,7 @@ runtime: shiny
 ```{r, echo=FALSE ,warning=FALSE,error=FALSE }
 library(shiny)
 library(ggplot2)
-
+library(PKPDmisc)
 
   ui  <-  fluidPage(
     titlePanel("Hello User!"),
@@ -152,11 +152,11 @@ fluidRow(
     
     myData <- reactive({
       if (is.null(inFile())) {
-       if(input$example) {read.csv("hba1c_mbma_dat.csv") }
+       if(input$example) {read_table("hba1c_mbma_dat.csv") }
        else {return(NULL)} 
        }
        else {
-        read.csv(inFile()$datapath)
+        read_table(inFile()$datapath)
       }
     })
     
@@ -285,7 +285,7 @@ fluidRow(
     plotObject <- reactive({
       plotdata <- myData()
                     plotdata <-  plotdata [ !is.na(plotdata[,input$y_input]),]
-                    plotdata[,input$y_input] <-  as.double(as.character(plotdata[,input$y_input]))
+                    plotdata[,input$y_input] <-  as_numeric(plotdata[,input$y_input])
 
      plotdata <-  plotdata [plotdata[,input$x_input] >= input$receivex[1]&plotdata[,input$x_input] <= input$receivex[2],]
      plotdata <-  plotdata [plotdata[,input$y_input] >= input$receivey[1]&plotdata[,input$y_input] <= input$receivey[2],]
