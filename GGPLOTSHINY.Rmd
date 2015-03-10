@@ -229,18 +229,30 @@ fluidRow(
       observe({
       inputx <- input$x_input
       data2<-  myData()
-      val1 <- min(min(data2[,input$x_input]),0)
-      val2 <- max(data2[,input$x_input])
+      val1 <- NULL
+        val2 <- NULL
+         val <- c(val1,val2)
+      if(inputx!="") {
+        data2 <-  data2 [ !is.na(data2[,inputx]),]
+      val1 <- min(min(data2[,inputx]),0)
+      val2 <- max(data2[,inputx])
       val <- c(val1,val2)
+      }
       updateSliderInput(session, "receivex", value = val,
                         min = val1, max = val2, step = (val2-val1)/ 10 )
     })
     observe({
-      inputx <- input$y_input
+      inputy <- input$y_input
       data2<-  myData()
-      val1 <- min(min(data2[,input$y_input]),0)
-      val2 <- max(data2[,input$y_input])
+      val1 <- NULL
+        val2 <- NULL
+         val <- c(val1,val2)
+       if(inputy!="") {
+          data2 <-  data2 [ !is.na(data2[,inputy]),]
+      val1 <- min(data2[,inputy])
+      val2 <- max(data2[,inputy])
       val <- c(val1,val2)
+      }
       updateSliderInput(session, "receivey", value = val,
                         min = val1, max = val2, step = (val2-val1)/ 10 )
     })
