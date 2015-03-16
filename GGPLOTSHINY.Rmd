@@ -8,6 +8,16 @@ runtime: shiny
 ```{r, echo=FALSE ,warning=FALSE,error=FALSE }
 library(shiny)
 library(ggplot2)
+library(scales)
+suppressMessages (library(Hmisc))
+
+stat_sum_df <- function(fun, geom="point", ...) {
+  stat_summary(fun.data=fun,  geom=geom,  ...)
+}
+stat_sum_single <- function(fun, geom="point", ...) {
+  stat_summary(fun.y=fun,  geom=geom,  ...)
+}
+
 
 
   ui  <-  fluidPage(
@@ -43,6 +53,7 @@ library(ggplot2)
           ), # tabpanel
         tabPanel("How To",
                    h5("1. Upload your ggplot ready data file in CSV format."),
+                   h5(" (known issue app crash if you select a new data after initial load of a data)."),
                    h5("2. It is assumed that your data is ready for ggplot (long format)."),
                    h5("3. The UI is dynamic and changes depending on your choices of x ,y, filer, group etc.."),
                    h5("4. If you want to change a numerical variable to categorical include it in the list of Categorical variables and then choose a number of cuts (default is 3)"),
@@ -60,6 +71,17 @@ library(ggplot2)
 #                    actionButton("plotButton", "Update Plot"),
                    hr(),
                    fluidRow(
+                      column (12, h4("Choose Axis types and Labels")),
+                        column (4, h4(""),
+                             checkboxInput('logy', 'Log Y axis', value = FALSE) ,
+                             checkboxInput('logx', 'Log X axis', value = FALSE) 
+                             ),
+                       column (4, h4(""),
+                             textInput('ylab', 'Y axis label', value = "") ),
+                       column (4, h4(""),
+                             textInput('xlab', 'X axis label', value = "") ),
+                
+                     
                      column (12, h4("Choose plot types and variables that map to Color, Group and Split by column or by Row")),
                      column (3, h4(""),
                              radioButtons("Points", "Points/Jitter/Lines:",
@@ -95,10 +117,29 @@ library(ggplot2)
 fluidRow(
   column(12,hr()),
   column (3, 
+                                            radioButtons("Mean", "Mean:",
+                                          c("Mean" = "Mean",
+                                            "Mean (95% CI)" = "Mean (95% CI)",
+                                            "None" = "None") ,selected="None") 
+          ),
+ column (3,checkboxInput('meanpoints', 'show points') ,
+           checkboxInput('meanlines', 'show lines') ,
+           numericInput( inputId = "errbar",label = "Error bar width:",value = 2,min = 1,max = NA)),
+
+    column (3,checkboxInput('meanignorecol', 'Ignore Color Above') ,
+                selectInput('colmean', label ='Mean Color', choices=colors(),multiple=FALSE, selectize=TRUE,selected="black")
+                        )
+                      )#fluidrow
+ 
+,
+fluidRow(
+  column(12,hr()),
+  column (3, 
                                               radioButtons("Loess", "Loess:",
                                           c("Loess" = "Loess",
                                             "Loess and SE" = "Loess and SE",
-                                            "None" = "None"))),
+                                            "None" = "None"),selected="None")
+          ),
   column (3, 
           sliderInput("loessens", "Loess Span:", min=0, max=1, value=c(0.75),step=0.05)
              ),
@@ -106,8 +147,9 @@ fluidRow(
                           selectInput('weight', 'Weight Loess by:',
                                       c('None', c("factorvar1","factorvar2")),'None')),
     column (3,checkboxInput('ignorecol', 'Ignore Color Above') ,
-            textInput("colloess", "Loess Color", value = "red"))
-                     )
+                selectInput('colloess', label ='Loess Color', choices=colors(),multiple=FALSE, selectize=TRUE,selected="black")
+                        )
+                      )#fluidrow
                    
           ),#tabPanel1
           tabPanel("Download", 
@@ -141,7 +183,7 @@ fluidRow(
   )#fluidPage
   
 
-  server <-  function(input, output, session) {
+server <-  function(input, output, session) {
     inFile <- reactive({
       if (is.null(input$file)) {
         return(NULL)
@@ -165,14 +207,20 @@ fluidRow(
        updateSelectInput(
         session,
         "x_input",
-        choices=names(myData()))
+        choices=c('None',names(myData()[sapply(myData(), is.numeric)]) )
+        )
     })
+    
+    
+    
     
     observe({
       updateSelectInput(
         session,
         "y_input",
-        choices=names(myData()))
+        choices=c('None',names(myData()[sapply(myData(), is.numeric)]),
+                  selected=names(myData()[sapply(myData(), is.numeric)])[1] )
+        )
     })
     observe({
       updateSelectInput(
@@ -228,30 +276,34 @@ fluidRow(
     
       observe({
       inputx <- input$x_input
+      datacolnames <- names( myData())
       data2<-  myData()
-      val1 <- NULL
+        val1 <- NULL
         val2 <- NULL
          val <- c(val1,val2)
-      if(inputx!="") {
-        data2 <-  data2 [ !is.na(data2[,inputx]),]
-      val1 <- min(min(data2[,inputx]),0)
-      val2 <- max(data2[,inputx])
-      val <- c(val1,val2)
+    if(is.element(inputx,datacolnames) )
+   {
+    data2 <-  data2 [ !is.na(data2[,inputx]),]
+      val1 <- min(data2[,inputx]) 
+      val2 <- max(data2[,inputx]) 
+      val <- c(val1,val2) 
       }
       updateSliderInput(session, "receivex", value = val,
                         min = val1, max = val2, step = (val2-val1)/ 10 )
     })
     observe({
       inputy <- input$y_input
+      datacolnames <- names( myData())
       data2<-  myData()
       val1 <- NULL
         val2 <- NULL
          val <- c(val1,val2)
-       if(inputy!="") {
-          data2 <-  data2 [ !is.na(data2[,inputy]),]
-      val1 <- min(data2[,inputy])
-      val2 <- max(data2[,inputy])
-      val <- c(val1,val2)
+ if(is.element(inputy,datacolnames) ) {
+       data2 <-  data2 [ !is.na(data2[,inputy]),]
+
+      val1 <- min(data2[,inputy]) 
+      val2 <- max(data2[,inputy]) 
+      val <- c(val1,val2) 
       }
       updateSliderInput(session, "receivey", value = val,
                         min = val1, max = val2, step = (val2-val1)/ 10 )
@@ -302,6 +354,11 @@ fluidRow(
      plotdata <-  plotdata [plotdata[,input$x_input] >= input$receivex[1]&plotdata[,input$x_input] <= input$receivex[2],]
      plotdata <-  plotdata [plotdata[,input$y_input] >= input$receivey[1]&plotdata[,input$y_input] <= input$receivey[2],]
     
+#  if (input$logy)
+#           plotdata <-  plotdata [plotdata[,input$y_input] > 0,]
+#  if (input$logx)
+#           plotdata <-  plotdata [plotdata[,input$x_input] > 0,]
+#      
      if(input$cat_input!="None")
        plotdata <-  plotdata [ is.element(plotdata[,input$cat_input],input$catfilter),]
      
@@ -343,6 +400,64 @@ fluidRow(
       if (input$color != 'None')
            p <- p + aes_string(color=input$color)
       
+         
+ ###### Mean section     
+      if (!input$meanignorecol) {
+        
+           if (input$Mean=="Mean") {
+             if(input$meanlines)           
+  p <- p + 
+      stat_sum_single(mean, geom = "line")
+  
+                  if(input$meanpoints)           
+p <- p + 
+      stat_sum_single(mean, geom = "point")
+             
+           }
+   
+           if (input$Mean=="Mean (95% CI)"){
+             p <- p + 
+  stat_sum_df("mean_cl_normal", geom = "errorbar",width=input$errbar)
+        if(input$meanlines)  
+           p <- p + 
+      stat_sum_df("mean_cl_normal", geom = "line",width=input$errbar)
+   if(input$meanpoints)           
+p <- p + 
+      stat_sum_df("mean_cl_normal", geom = "point",width=input$errbar)
+             
+           }
+       }
+
+
+  if (input$meanignorecol) {
+        meancol <- input$colmean
+           if (input$Mean=="Mean") {
+             if(input$meanlines)           
+  p <- p + 
+      stat_sum_single(mean, geom = "line",col=meancol)
+  
+                  if(input$meanpoints)           
+p <- p + 
+      stat_sum_single(mean, geom = "point",col=meancol)
+             
+           }
+   
+           if (input$Mean=="Mean (95% CI)"){
+             p <- p + 
+  stat_sum_df("mean_cl_normal", geom = "errorbar",width=input$errbar,col=meancol)
+        if(input$meanlines)  
+           p <- p + 
+      stat_sum_df("mean_cl_normal", geom = "line",width=input$errbar,col=meancol)
+   if(input$meanpoints)           
+p <- p + 
+      stat_sum_df("mean_cl_normal", geom = "point",width=input$errbar,col=meancol)
+             
+           }
+       }
+
+
+###### Mean section    
+      
       if (!input$ignorecol) {
       spanplot <- input$loessens
       if (input$Loess=="Loess")
@@ -380,6 +495,23 @@ fluidRow(
       facets <- paste(input$facet_row, '~', input$facet_col)
       if (facets != '. ~ .')
         p <- p + facet_grid(facets)
+      
+           if (input$logy)
+      p <- p + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                     labels = trans_format("log10", math_format(10^.x))) 
+      
+       if (input$logx)
+      p <- p + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                     labels = trans_format("log10", math_format(10^.x))) 
+      
+      
+      if (input$ylab!="")
+      p <- p + ylab(input$ylab)
+      
+       if (input$xlab!="")
+      p <- p + xlab(input$xlab)
+      
+      
       p
       p
     }
