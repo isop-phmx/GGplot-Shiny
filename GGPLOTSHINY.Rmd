@@ -19,7 +19,6 @@ stat_sum_single <- function(fun, geom="point", ...) {
 }
 
 
-
   ui  <-  fluidPage(
     titlePanel("Hello User!"),
     sidebarLayout(
@@ -48,6 +47,10 @@ stat_sum_single <- function(fun, geom="point", ...) {
         sliderInput("receivey", "Include y range:", min=1, max=2, value=c(1,2),step=1),
         selectInput('cat_input',label = 'Filter variable:',""),
         selectInput('catfilter', label ='Selected values:', "",multiple=TRUE, selectize=TRUE),
+        
+       selectInput('cat_input2',label = 'Filter variable 2:',""),
+        selectInput('catfilter2', label ='Selected values:', "",multiple=TRUE, selectize=TRUE),
+    
         selectInput('cat_var',label = 'Categorical variables:',"",multiple=TRUE),
         sliderInput('n_cut',label = 'N of Cuts for Continuous:', min=1, max=10, value=c(3),step=1)
           ), # tabpanel
@@ -151,6 +154,27 @@ fluidRow(
                         )
                       )#fluidrow
                    
+,
+### median PI section
+fluidRow(
+  column(12,hr()),
+  column (3, 
+                                            radioButtons("Median", "Median:",
+                                          c("Median" = "Median",
+                                            "Median/PI" = "Median/PI",
+                                            "None" = "None") ,selected="None") 
+          ),
+ column (3,checkboxInput('medianpoints', 'show points') ,
+           checkboxInput('medianlines', 'show lines') ,
+         sliderInput("PI", "PI %:", min=0, max=1, value=c(0.90),step=0.05)
+         ),
+
+    column (3,checkboxInput('medianignorecol', 'Ignore Color Above') ,
+                selectInput('colmedian', label ='Median Color', choices=colors(),multiple=FALSE, selectize=TRUE,selected="black")
+                        )
+                      )#fluidrow
+
+
           ),#tabPanel1
           tabPanel("Download", 
                      selectInput(
@@ -226,6 +250,13 @@ server <-  function(input, output, session) {
       updateSelectInput(
         session,
         "cat_input",
+        choices=c('None',names(myData())))
+    })
+    
+        observe({
+      updateSelectInput(
+        session,
+        "cat_input2",
         choices=c('None',names(myData())))
     })
     
@@ -324,7 +355,19 @@ server <-  function(input, output, session) {
           )
         })
     
-    
+     observe({
+      inputfactor <- input$cat_input2
+          data2 <- myData()
+      choices <- NULL
+          choices <- if(!is.null(inputfactor)& inputfactor!="None" ) levels(as.factor(data2[,inputfactor])) 
+                
+          updateSelectInput(session, "catfilter2",
+                            label = paste("Select label", input$cat_input2),
+                            choices = c(choices),
+                            selected = choices
+          )
+        })   
+ 
     
    output$mytablex = renderDataTable({
  myData()
@@ -361,17 +404,20 @@ server <-  function(input, output, session) {
 #      
      if(input$cat_input!="None")
        plotdata <-  plotdata [ is.element(plotdata[,input$cat_input],input$catfilter),]
+
+if(input$cat_input2!="None")
+       plotdata <-  plotdata [ is.element(plotdata[,input$cat_input2],input$catfilter2),] 
+    
      
      if(length(input$cat_var ) >=1) {
        for (i in 1:length(input$cat_var) ) {
          varname<- input$cat_var[i]
-         if( length(unique(plotdata[,varname]))>10 ) plotdata[,varname] <- cut(plotdata[,varname],input$n_cut)
+         if( length(unique(plotdata[,varname]))>=15 ) plotdata[,varname] <- cut(plotdata[,varname],input$n_cut)
        plotdata[,varname]   <- as.factor( plotdata[,varname])
        }
        }
        
         
-    
    
      
      if(!is.null(plotdata)) {
@@ -491,7 +537,65 @@ p <- p +
         p <- p + geom_smooth(method="loess",size=1.5,se=T,span=spanplot,col=colloeess)+  
         aes_string(weight=input$weight)
               }
-      
+#Loess Section End
+
+###### Median PI section    
+      if (!input$medianignorecol) {
+        
+           if (input$Median=="Median") {
+             if(input$medianlines)           
+  p <- p + 
+      stat_sum_single(median, geom = "line")
+  
+                  if(input$medianpoints)           
+p <- p + 
+      stat_sum_single(median, geom = "point")
+             
+           }
+   
+           if (input$Median=="Median/PI"){
+             p <- p + 
+  stat_sum_df("median_hilow", geom = "smooth",conf.int=input$PI)
+        if(input$meanlines)  
+           p <- p + 
+      stat_sum_df("median_hilow", geom = "line",conf.int=input$PI)
+   if(input$meanpoints)           
+p <- p + 
+      stat_sum_df("median_hilow", geom = "point",conf.int=input$PI)
+             
+           }
+       }
+
+
+  if (input$medianignorecol) {
+        mediancol <- input$colmedian
+          if (input$Median=="Median") {
+             if(input$medianlines)           
+  p <- p + 
+      stat_sum_single(median, geom = "line",col=mediancol)
+  
+                  if(input$medianpoints)           
+p <- p + 
+      stat_sum_single(median, geom = "point",col=mediancol)
+             
+           }
+   
+           if (input$Median=="Median/PI"){
+             p <- p + 
+  stat_sum_df("median_hilow", geom = "smooth",conf.int=input$PI,col=mediancol)
+        if(input$meanlines)  
+           p <- p + 
+      stat_sum_df("median_hilow", geom = "line",conf.int=input$PI,col=mediancol)
+   if(input$meanpoints)           
+p <- p + 
+      stat_sum_df("median_hilow", geom = "point",conf.int=input$PI,col=meancol)
+             
+           }
+       }
+
+
+###### Median PI section    
+
       facets <- paste(input$facet_row, '~', input$facet_col)
       if (facets != '. ~ .')
         p <- p + facet_grid(facets)
