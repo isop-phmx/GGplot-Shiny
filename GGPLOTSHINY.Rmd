@@ -250,7 +250,10 @@ server <-  function(input, output, session) {
        else {return(NULL)} 
        }
        else {
-        read.csv(inFile()$datapath)
+         updateNumericInput(session, "x_input", NA)
+         updateNumericInput(session, "y_input", NA)
+       dat <-  read.csv(inFile()$datapath)
+      return(dat)
       }
     })
     
