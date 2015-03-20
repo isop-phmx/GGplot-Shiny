@@ -46,7 +46,7 @@ stat_sum_single <- function(fun, geom="point", ...) {
         selectInput("y_input",label = 'y variable:',""),
         sliderInput("receivey", "Include y range:", min=1, max=2, value=c(1,2),step=1),
         selectInput('cat_input',label = 'Filter variable:',""),
-        selectInput('catfilter', label ='Selected values:', "",multiple=TRUE, selectize=TRUE),
+        selectInput('catfilter', label ='Selected values:', "",multiple=TRUE, selectize=FALSE),
         
        selectInput('cat_input2',label = 'Filter variable 2:',""),
         selectInput('catfilter2', label ='Selected values:', "",multiple=TRUE, selectize=TRUE),
@@ -66,7 +66,7 @@ stat_sum_single <- function(fun, geom="point", ...) {
     
           ), # tabpanel
         tabPanel("How To",
-                 h5(" (Known issue app crashes if you select a new data and filter variables not set to none)."),
+                 h5(" (Known issue filter variables values will not reset when a new data is uploaded)."),
                  h5("1. Upload your ggplot ready data file in CSV format."),
                  h5("2. It is assumed that your data is ready for ggplot (long format)."),                 
                  h5("3. x and y variables input allow numeric continuous variables only."),
@@ -288,6 +288,38 @@ server <-  function(input, output, session) {
         choices=c('None',names(myData())))
     })
     
+   
+    observe({
+      inputfactor <- input$cat_input
+          data2 <- myData()
+      choices <- NULL
+          choices <- if(!is.null(inputfactor)& inputfactor!="None"&
+                          is.element(input$cat_input,names( myData()))
+                        ) levels(as.factor(data2[,inputfactor])) 
+ if(is.null(inputfactor)| inputfactor=="None") choices <- NULL
+      
+          updateSelectInput(session, "catfilter",
+                            label = paste("Select label", input$cat_input),
+                            choices = c(choices),
+                            selected = choices
+          )
+        })
+    
+     observe({
+      inputfactor <- input$cat_input2
+          data2 <- myData()
+      choices <- NULL
+          choices <- if(!is.null(inputfactor)& inputfactor!="None"&
+                          is.element(input$cat_input2,names( myData()))
+                        ) levels(as.factor(data2[,inputfactor])) 
+                
+          updateSelectInput(session, "catfilter2",
+                            label = paste("Select label", input$cat_input2),
+                            choices = c(choices),
+                            selected = choices
+          )
+        }) 
+    
       observe({
       updateSelectInput(
         session,
@@ -373,36 +405,7 @@ server <-  function(input, output, session) {
       updateSliderInput(session, "receivey", value = val,
                         min = val1, max = val2, step = (val2-val1)/ 10 )
     })
-    
-
-    
-    observe({
-      inputfactor <- input$cat_input
-          data2 <- myData()
-      choices <- NULL
-          choices <- if(!is.null(inputfactor)& inputfactor!="None"
-                          ) 
-            levels(as.factor(data2[,inputfactor])) 
-                
-          updateSelectInput(session, "catfilter",
-                            label = paste("Select label", input$cat_input),
-                            choices = c(choices),
-                            selected = choices
-          )
-        })
-    
-     observe({
-      inputfactor <- input$cat_input2
-          data2 <- myData()
-      choices <- NULL
-          choices <- if(!is.null(inputfactor)& inputfactor!="None" ) levels(as.factor(data2[,inputfactor])) 
-                
-          updateSelectInput(session, "catfilter2",
-                            label = paste("Select label", input$cat_input2),
-                            choices = c(choices),
-                            selected = choices
-          )
-        })   
+  
  
     
    output$mytablex = renderDataTable({
@@ -438,10 +441,13 @@ server <-  function(input, output, session) {
 #  if (input$logx)
 #           plotdata <-  plotdata [plotdata[,input$x_input] > 0,]
 #      
-     if(input$cat_input!="None")
+#     if(input$cat_input!="None")
+       if(is.element(input$cat_input,names( myData()) ) )
        plotdata <-  plotdata [ is.element(plotdata[,input$cat_input],input$catfilter),]
 
-if(input$cat_input2!="None")
+
+#if(input$cat_input2!="None")
+       if(is.element(input$cat_input2,names( myData()) ) )
        plotdata <-  plotdata [ is.element(plotdata[,input$cat_input2],input$catfilter2),] 
     
      
