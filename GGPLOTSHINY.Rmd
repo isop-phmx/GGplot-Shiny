@@ -45,9 +45,14 @@ stat_sum_single <- function(fun, geom="point", ...) {
         sliderInput("receivex", "Include x range:", min=1, max=2, value=c(1,2),step=1),
         selectInput("y_input",label = 'y variable:',""),
         sliderInput("receivey", "Include y range:", min=1, max=2, value=c(1,2),step=1),
+        numericInput( inputId = "maxlevels",label = "Max number of unique values for filter variables:",value = 250,min = 1,max = NA),
         selectInput('cat_input',label = 'Filter variable:',""),
         selectInput('catfilter', label ='Selected values:', "",multiple=TRUE, selectize=FALSE),
         
+#     checkboxGroupInput("checkGroup", label = "Tick the boxes",
+#     choices = list("None" = "No variable specified")),
+    
+    
        selectInput('cat_input2',label = 'Filter variable 2:',""),
         selectInput('catfilter2', label ='Selected values:', "",multiple=TRUE, selectize=TRUE),
     
@@ -278,29 +283,45 @@ server <-  function(input, output, session) {
         )
     })
     observe({
+      data2 <- myData()
+      
+      NUNIQUEDF <- sapply(data2, function(x) length(unique(x)))
+      NAMESTOKEEP<- names(data2)  [ NUNIQUEDF  < input$maxlevels ]
+      
       updateSelectInput(
         session,
         "cat_input",
-        choices=c('None',names(myData())))
+        choices=c('None',NAMESTOKEEP ))
     })
     
         observe({
+           data2 <- myData()
+      NUNIQUEDF <- sapply(data2, function(x) length(unique(x)))
+      NAMESTOKEEP<- names(data2)  [ NUNIQUEDF  < input$maxlevels ]
+      
       updateSelectInput(
         session,
         "cat_input2",
-        choices=c('None',names(myData())))
+        choices=c('None',NAMESTOKEEP))
     })
     
    
     observe({
       inputfactor <- input$cat_input
           data2 <- myData()
-      choices <- NULL
-          choices <- if(!is.null(inputfactor)& inputfactor!="None"&
+ if(is.null(inputfactor))  choices <- NULL
+ if(inputfactor=="None")  {
+      choices <- NULL    
+   updateSelectInput(session, "catfilter",
+                            label = paste("", input$cat_input),
+                            choices = list("None" = "No variable specified")
+                            )
+      } 
+      
+
+      choices <- if(!is.null(inputfactor)& inputfactor!="None"&
                           is.element(input$cat_input,names( myData()))
                         ) levels(as.factor(data2[,inputfactor])) 
- if(is.null(inputfactor)| inputfactor=="None") choices <- NULL
-      
           updateSelectInput(session, "catfilter",
                             label = paste("Select label", input$cat_input),
                             choices = c(choices),
@@ -311,18 +332,48 @@ server <-  function(input, output, session) {
      observe({
       inputfactor <- input$cat_input2
           data2 <- myData()
-      choices <- NULL
-          choices <- if(!is.null(inputfactor)& inputfactor!="None"&
+ if(is.null(inputfactor))  choices <- NULL
+ if(inputfactor=="None")  {
+      choices <- NULL    
+   updateSelectInput(session, "catfilter2",
+                            label = paste("", input$cat_input2),
+                            choices = list("None" = "No variable specified")
+                            )
+      } 
+   
+      
+      choices <- if(!is.null(inputfactor)& inputfactor!="None"&
                           is.element(input$cat_input2,names( myData()))
                         ) levels(as.factor(data2[,inputfactor])) 
-                
           updateSelectInput(session, "catfilter2",
-                            label = paste("Select label", input$cat_input2),
+                            label = paste("Select label", inputfactor),
                             choices = c(choices),
                             selected = choices
           )
-        }) 
+        })
     
+#      observe({
+#       inputfactor <- input$cat_input
+#           data2 <- myData()
+#    if(is.null(inputfactor))  choices <- NULL
+#     if( inputfactor=="None") {
+#     choices <- NULL    
+#    updateCheckboxGroupInput(session, "checkGroup",
+#                             label = paste("None", input$cat_input),
+#                             choices = list("None" = "No variable specified")
+#           )
+#    }
+#    
+#           choices <- if(!is.null(inputfactor)& inputfactor!="None"&
+#                           is.element(input$cat_input,names( myData()))
+#                         ) levels(as.factor(data2[,inputfactor])) 
+#         updateCheckboxGroupInput(session, "checkGroup",
+#                             label = paste("Check the values to keep", input$cat_input),
+#                             choices = c(choices),
+#                             selected = choices
+#           )
+#         }) 
+ 
       observe({
       updateSelectInput(
         session,
