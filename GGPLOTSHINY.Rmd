@@ -10,6 +10,7 @@ library(shiny)
 library(ggplot2)
 library(scales)
 suppressMessages (library(Hmisc))
+options(shiny.deprecation.messages=FALSE)
 
 stat_sum_df <- function(fun, geom="point", ...) {
   stat_summary(fun.data=fun,  geom=geom,  ...)
@@ -19,7 +20,7 @@ stat_sum_single <- function(fun, geom="point", ...) {
 }
 
 
-  ui  <-  fluidPage(
+ui  <-  fluidPage(
     titlePanel("Hello User!"),
     sidebarLayout(
 
@@ -27,12 +28,14 @@ stat_sum_single <- function(fun, geom="point", ...) {
         tabsetPanel(
         tabPanel("Select Inputs", 
                         tagList(
-      singleton(tags$head(tags$script(src='//cdnjs.cloudflare.com/ajax/libs/datatables/1.10.4/jquery.dataTables.min.js',type='text/javascript'))),
-      singleton(tags$head(tags$script(src='//cdnjs.cloudflare.com/ajax/libs/datatables-tabletools/2.1.5/js/TableTools.min.js',type='text/javascript'))),
-      singleton(tags$head(tags$script(src='//cdn.datatables.net/colreorder/1.1.1/js/dataTables.colReorder.min.js',type='text/javascript'))),
+      singleton(tags$head(tags$script(src='//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js',
+                                      type='text/javascript'))),
+      singleton(tags$head(tags$script(src='//cdn.datatables.net/tabletools/2.2.4/js/dataTables.tableTools.min.js',
+type='text/javascript'))),
+      singleton(tags$head(tags$script(src='//cdn.datatables.net/colreorder/1.1.3/js/dataTables.colReorder.min.js',type='text/javascript'))),
       singleton(tags$head(tags$script(src='colvis.js',type='text/javascript'))),
-      singleton(tags$head(tags$script(src='//cdnjs.cloudflare.com/ajax/libs/datatables-tabletools/2.1.5/js/ZeroClipboard.min.js',type='text/javascript'))),
-      singleton(tags$head(tags$link(href='//cdnjs.cloudflare.com/ajax/libs/datatables-tabletools/2.1.5/css/TableTools.min.css',rel='stylesheet',type='text/css'))),
+      singleton(tags$head(tags$script(src='//cdn.datatables.net/tabletools/2.2.4/js/ZeroClipboard.min.js',type='text/javascript'))),
+      singleton(tags$head(tags$link(href='//cdn.datatables.net/tabletools/2.2.4/css/dataTables.tableTools.css',rel='stylesheet',type='text/css'))),
       singleton(tags$script(HTML("if (window.innerHeight < 400) alert('Screen too small');"))),
     tags$head( tags$style(HTML("
                         .cvclear{
@@ -62,7 +65,10 @@ stat_sum_single <- function(fun, geom="point", ...) {
      h4("Other Graph Options"),
      selectInput('backgroundcol', label ='Background Color',
                  choices=c("Gray" ="gray97","White"="white","Dark Gray"="grey90"),
-                 multiple=FALSE, selectize=TRUE,selected="Gray"),
+                 multiple=FALSE, selectize=TRUE,selected="gray97"),
+    selectInput('legendposition', label ='Legend Position',
+                 choices=c("left", "right", "bottom", "top"),
+                 multiple=FALSE, selectize=TRUE,selected="bottom"),
     checkboxInput('horizontalzero', 'Horizontol Zero Line'),
     checkboxInput('identityline', 'Identity Line')
 
@@ -130,9 +136,9 @@ stat_sum_single <- function(fun, geom="point", ...) {
                    column(3,
                           h4(""),
                          selectInput('facet_col', 'Column split by:',
-                               c(None='.', c("factorvar1","factorvar2")),'None'),
+                               c(None='.', c("factorvar1","factorvar2")),'.'),
                           selectInput('facet_row', 'Row split by:',
-                                      c(None='.', c("factorvar1","factorvar2")),'None')
+                                      c(None='.', c("factorvar1","factorvar2")),'.')
                    
                          
                    )
@@ -147,7 +153,9 @@ fluidRow(
           ),
  column (3,checkboxInput('meanpoints', 'Show points') ,
            checkboxInput('meanlines', 'Show lines') 
-             ),
+        # ,sliderInput("meansize", "Line Size:", min=0, max=3, value=1,step=0.05)
+         )
+ ,
 
     column (3,checkboxInput('meanignorecol', 'Ignore Color above') ,
            
@@ -255,33 +263,24 @@ server <-  function(input, output, session) {
        else {return(NULL)} 
        }
        else {
-         updateNumericInput(session, "x_input", NA)
-         updateNumericInput(session, "y_input", NA)
+        # updateNumericInput(session, "x_input", NA)
+        # updateNumericInput(session, "y_input", NA)
        dat <-  read.csv(inFile()$datapath)
       return(dat)
       }
     })
     
 
-      observe({
-       updateSelectInput(
-        session,
-        "x_input",
-        choices=c('None',names(myData()[sapply(myData(), is.numeric)]) )
-        )
-    })
+          observe({
+            NUMERICCOLUMNS <- names(myData()[sapply(myData(), is.numeric)]) 
+      updateSelectInput(session,"x_input", choices=c('None',NUMERICCOLUMNS), selected=NUMERICCOLUMNS[1] )
+     })
     
+   observe({
+      NUMERICCOLUMNS <- names(myData()[sapply(myData(), is.numeric)]) 
+      updateSelectInput(session,"y_input", choices=c('None',NUMERICCOLUMNS), selected=NUMERICCOLUMNS[2] )
+     })
     
-    
-    
-    observe({
-      updateSelectInput(
-        session,
-        "y_input",
-        choices=c('None',names(myData()[sapply(myData(), is.numeric)]),
-                  selected=names(myData()[sapply(myData(), is.numeric)])[1] )
-        )
-    })
     observe({
       data2 <- myData()
       
@@ -314,7 +313,7 @@ server <-  function(input, output, session) {
       choices <- NULL    
    updateSelectInput(session, "catfilter",
                             label = paste("", input$cat_input),
-                            choices = list("None" = "No variable specified")
+                            choices = list("No variable specified")
                             )
       } 
       
@@ -323,7 +322,7 @@ server <-  function(input, output, session) {
                           is.element(input$cat_input,names( myData()))
                         ) levels(as.factor(data2[,inputfactor])) 
           updateSelectInput(session, "catfilter",
-                            label = paste("Select label", input$cat_input),
+                            label = paste("Select values", input$cat_input),
                             choices = c(choices),
                             selected = choices
           )
@@ -337,7 +336,7 @@ server <-  function(input, output, session) {
       choices <- NULL    
    updateSelectInput(session, "catfilter2",
                             label = paste("", input$cat_input2),
-                            choices = list("None" = "No variable specified")
+                            choices = list("No variable specified")
                             )
       } 
    
@@ -346,7 +345,7 @@ server <-  function(input, output, session) {
                           is.element(input$cat_input2,names( myData()))
                         ) levels(as.factor(data2[,inputfactor])) 
           updateSelectInput(session, "catfilter2",
-                            label = paste("Select label", inputfactor),
+                            label = paste("Select values", inputfactor),
                             choices = c(choices),
                             selected = choices
           )
@@ -880,7 +879,15 @@ if (input$identityline)
  p <-    p+ geom_abline(intercept = 0, slope = 1)
 
  p <-    p+
-     theme(panel.background = element_rect(fill=input$backgroundcol))
+    theme(legend.title=element_blank(),
+        legend.position=input$legendposition,
+        panel.background = element_rect(fill=input$backgroundcol),
+        axis.title.y = element_text(size = rel(1.5)),
+        axis.title.x = element_text(size = rel(1.5)),
+         strip.text.x = element_text(size = 16),
+        strip.text.y = element_text(size = 16)
+        )
+
 
 p
     }
@@ -951,5 +958,6 @@ p
   }
 
 shinyApp(ui = ui, server = server,  options = list(height = 1000))
+
 
 ```
