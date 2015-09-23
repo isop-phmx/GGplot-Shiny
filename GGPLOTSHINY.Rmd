@@ -20,7 +20,7 @@ stat_sum_single <- function(fun, geom="point", ...) {
 }
 
 
-ui  <-  fluidPage(
+ui  <-  fluidPage( 
     titlePanel("Hello User!"),
     sidebarLayout(
 
