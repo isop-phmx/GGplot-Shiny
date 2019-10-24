@@ -1,0 +1,8 @@
+name: GGPLOTSHINY
+account: isop
+server: shinyapps.io
+bundleId: 349603
+url: https://isop.shinyapps.io/GGPLOTSHINY/
+when: 1452787956.64207
+asMultiple: FALSE
+asStatic: FALSE
